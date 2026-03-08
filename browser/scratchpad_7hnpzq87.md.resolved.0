@@ -1,0 +1,9 @@
+# Partition Game Testing Plan
+
+1. [ ] Open http://localhost:8092/
+2. [ ] Click 'Start Game' button.
+3. [ ] Click canvas to build a wall.
+4. [ ] Right-click canvas to change orientation.
+5. [ ] Click canvas again to build another wall.
+6. [ ] Verify ball movement, wall completion, and life logic.
+7. [ ] Final assessment of game functionality.

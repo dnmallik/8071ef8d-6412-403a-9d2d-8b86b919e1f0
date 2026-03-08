@@ -1,0 +1,13 @@
+Score:
+11079
+Ships:
+1
+Filled:
+0.0
+%
+Level:
+3
+Move:
+Arrows
+| Shoot:
+Space

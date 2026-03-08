@@ -1,0 +1,19 @@
+# Task: Test the Partition Game
+
+## Plan
+- [x] Open http://localhost:8092/
+- [x] Click 'Ignition' to start.
+- [x] Use arrow keys to move the spaceship pointer around the edge. Verify it moves.
+- [x] Press SPACEBAR to shoot a laser across the canvas.
+- [x] Move to a different edge and shoot another laser to trap an area.
+- [x] Verify black holes are bouncing around and lasers trap them.
+- [x] Assessment.
+
+## Observations
+- The game starts with an 'Ignition' button.
+- Arrow keys move the spaceship (pink triangle) along the border.
+- SPACEBAR shoots a laser (vertical or horizontal depending on position).
+- If a black hole hits the laser before it reaches the other side, the game resets to the start screen.
+- Successfully trapped ~50% of the area in multiple attempts.
+- Black holes are purple glowing circles bouncing around the cosmos.
+- The game theme matches the "cosmos" and "black holes" description.

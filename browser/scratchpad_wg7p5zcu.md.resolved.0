@@ -1,0 +1,8 @@
+# Task Checklist
+- [x] Open http://localhost:8092/
+- [x] Click 'Ignition'
+- [ ] Move rocket off perimeter using arrow keys
+- [ ] Steer rocket to draw an L-shape trail
+- [ ] Return to perimeter to close the trail
+- [ ] Verify area fill
+- [ ] Assess steering and drawing mechanics

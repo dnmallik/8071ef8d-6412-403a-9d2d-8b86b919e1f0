@@ -1,0 +1,400 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const scoreEl = document.getElementById('score');
+const livesEl = document.getElementById('lives');
+const filledEl = document.getElementById('filled');
+const levelEl = document.getElementById('level');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayMsg = document.getElementById('overlay-msg');
+const restartBtn = document.getElementById('restart-btn');
+
+const C_WIDTH = canvas.width;  // 840
+const C_HEIGHT = canvas.height; // 640
+const GAME_X = 20;
+const GAME_Y = 20;
+const GAME_W = 800;
+const GAME_H = 600;
+
+const CELL = 5;
+const COLS = GAME_W / CELL; // 160
+const ROWS = GAME_H / CELL; // 120
+const TOTAL_AREA = GAME_W * GAME_H;
+const REQUIRED_FILL_PERCENT_PER_LEVEL = 75;
+
+let state = {
+    level: 1,
+    score: 0,
+    lives: 3,
+    filledArea: 0,
+    isPlaying: false,
+    holes: [],
+    grid: [],
+    trail: [],
+    isDrawing: false,
+    spaceship: { x: GAME_X, y: GAME_Y, facing: 'right' },
+    keys: {}
+};
+
+class BlackHole {
+    constructor(x, y, radius, speed) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        const angle = Math.random() * Math.PI * 2;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+    }
+
+    update(dt) {
+        let nx = this.x + this.vx * dt;
+        let ny = this.y + this.vy * dt;
+
+        let minC = Math.max(0, Math.floor((nx - GAME_X - this.radius) / CELL));
+        let maxC = Math.min(COLS - 1, Math.floor((nx - GAME_X + this.radius) / CELL));
+        let minR = Math.max(0, Math.floor((ny - GAME_Y - this.radius) / CELL));
+        let maxR = Math.min(ROWS - 1, Math.floor((ny - GAME_Y + this.radius) / CELL));
+
+        let hit1 = false;
+        let hit2 = false;
+
+        for (let r = minR; r <= maxR; r++) {
+            for (let c = minC; c <= maxC; c++) {
+                if (state.grid[r][c] === 1) hit1 = true;
+                if (state.grid[r][c] === 2) hit2 = true;
+            }
+        }
+
+        if (hit2) {
+            loseLife();
+            return;
+        }
+
+        if (hit1) {
+            let hitX = false;
+            let testMinC = Math.max(0, Math.floor((nx - GAME_X - this.radius) / CELL));
+            let testMaxC = Math.min(COLS - 1, Math.floor((nx - GAME_X + this.radius) / CELL));
+            let testYMinR = Math.max(0, Math.floor((this.y - GAME_Y - this.radius) / CELL));
+            let testYMaxR = Math.min(ROWS - 1, Math.floor((this.y - GAME_Y + this.radius) / CELL));
+
+            for (let r = testYMinR; r <= testYMaxR; r++) {
+                if (state.grid[r][testMinC] === 1 || state.grid[r][testMaxC] === 1) hitX = true;
+            }
+            if (hitX) { this.vx *= -1; nx = this.x; }
+
+            let hitY = false;
+            let testMinR = Math.max(0, Math.floor((ny - GAME_Y - this.radius) / CELL));
+            let testMaxR = Math.min(ROWS - 1, Math.floor((ny - GAME_Y + this.radius) / CELL));
+            let testXMinC = Math.max(0, Math.floor((this.x - GAME_X - this.radius) / CELL));
+            let testXMaxC = Math.min(COLS - 1, Math.floor((this.x - GAME_X + this.radius) / CELL));
+
+            for (let c = testXMinC; c <= testXMaxC; c++) {
+                if (state.grid[testMinR][c] === 1 || state.grid[testMaxR][c] === 1) hitY = true;
+            }
+            if (hitY) { this.vy *= -1; ny = this.y; }
+
+            if (!hitX && !hitY) {
+                this.vx *= -1; this.vy *= -1;
+                nx = this.x; ny = this.y;
+            }
+        }
+
+        this.x = nx;
+        this.y = ny;
+    }
+
+    draw(ctx) {
+        ctx.beginPath();
+        const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius * 2.5);
+        grad.addColorStop(0, '#000000');
+        grad.addColorStop(0.5, '#aa00ff');
+        grad.addColorStop(1, 'transparent');
+
+        ctx.fillStyle = grad;
+        ctx.arc(this.x, this.y, this.radius * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+
+        ctx.beginPath();
+        ctx.fillStyle = '#000000';
+        ctx.arc(this.x, this.y, this.radius * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+    }
+}
+
+window.addEventListener('keydown', e => {
+    state.keys[e.key] = true;
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+    }
+});
+window.addEventListener('keyup', e => {
+    state.keys[e.key] = false;
+});
+
+function loseLife() {
+    state.lives--;
+    for (let pt of state.trail) {
+        state.grid[pt.r][pt.c] = 0;
+    }
+    state.trail = [];
+    state.isDrawing = false;
+
+    let validStart = false;
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (state.grid[r][c] === 1) {
+                state.spaceship.x = GAME_X + c * CELL;
+                state.spaceship.y = GAME_Y + r * CELL;
+                validStart = true;
+                break;
+            }
+        }
+        if (validStart) break;
+    }
+
+    if (state.lives <= 0) {
+        showOverlay("Game Over", `Final Score: ${state.score}`);
+    }
+    updateUI();
+}
+
+function commitTrail() {
+    state.isDrawing = false;
+    for (let pt of state.trail) {
+        state.grid[pt.r][pt.c] = 1;
+    }
+    state.trail = [];
+
+    let reachable = Array.from({ length: ROWS }, () => new Array(COLS).fill(false));
+    let queue = [];
+    for (let h of state.holes) {
+        let hc = Math.max(0, Math.min(COLS - 1, Math.floor((h.x - GAME_X) / CELL)));
+        let hr = Math.max(0, Math.min(ROWS - 1, Math.floor((h.y - GAME_Y) / CELL)));
+        if (state.grid[hr][hc] !== 1) {
+            queue.push({ c: hc, r: hr });
+            reachable[hr][hc] = true;
+        }
+    }
+
+    let head = 0;
+    let dirs = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    while (head < queue.length) {
+        let curr = queue[head++];
+        for (let d of dirs) {
+            let nc = curr.c + d[0]; let nr = curr.r + d[1];
+            if (nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS) {
+                if (state.grid[nr][nc] !== 1 && !reachable[nr][nc]) {
+                    reachable[nr][nc] = true;
+                    queue.push({ c: nc, r: nr });
+                }
+            }
+        }
+    }
+
+    let countFilled = 0;
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (state.grid[r][c] === 0 && !reachable[r][c]) {
+                state.grid[r][c] = 1;
+                countFilled++;
+            }
+        }
+    }
+
+    state.filledArea += countFilled * CELL * CELL;
+    state.score += Math.floor(countFilled * CELL * CELL / 100) * state.level;
+
+    updateUI();
+    const perc = (state.filledArea / TOTAL_AREA * 100);
+    if (perc >= REQUIRED_FILL_PERCENT_PER_LEVEL) {
+        state.level++;
+        showOverlay(`Level ${state.level - 1} Cleared!`, `Cosmos protected. Get ready for level ${state.level}.`);
+    }
+}
+
+function updateSpaceship(dt) {
+    const speed = 250;
+    let oldX = state.spaceship.x;
+    let oldY = state.spaceship.y;
+    let { facing } = state.spaceship;
+
+    let dx = 0; let dy = 0;
+    if (state.keys['ArrowLeft'] || state.keys['a'] || state.keys['A']) { dx -= speed * dt; facing = 'left'; }
+    if (state.keys['ArrowRight'] || state.keys['d'] || state.keys['D']) { dx += speed * dt; facing = 'right'; }
+    if (state.keys['ArrowUp'] || state.keys['w'] || state.keys['W']) { dy -= speed * dt; facing = 'up'; }
+    if (state.keys['ArrowDown'] || state.keys['s'] || state.keys['S']) { dy += speed * dt; facing = 'down'; }
+
+    if (dx === 0 && dy === 0) return;
+
+    let nx = oldX + dx;
+    let ny = oldY + dy;
+    nx = Math.max(GAME_X, Math.min(GAME_X + GAME_W - CELL, nx));
+    ny = Math.max(GAME_Y, Math.min(GAME_Y + GAME_H - CELL, ny));
+
+    let steps = Math.ceil(Math.max(Math.abs(nx - oldX), Math.abs(ny - oldY)) / (CELL / 2));
+    if (steps > 0) {
+        let stepX = (nx - oldX) / steps;
+        let stepY = (ny - oldY) / steps;
+
+        for (let i = 1; i <= steps; i++) {
+            let px = oldX + stepX * i;
+            let py = oldY + stepY * i;
+            let pc = Math.floor((px - GAME_X) / CELL);
+            let pr = Math.floor((py - GAME_Y) / CELL);
+
+            if (state.grid[pr][pc] === 1) {
+                if (state.isDrawing) {
+                    commitTrail();
+                }
+            } else if (state.grid[pr][pc] === 0) {
+                state.grid[pr][pc] = 2; // trail
+                state.trail.push({ c: pc, r: pr });
+                state.isDrawing = true;
+            }
+            // If hits 2 (own trail), let them loop over their own trail without dying!
+        }
+    }
+
+    state.spaceship.x = nx;
+    state.spaceship.y = ny;
+    state.spaceship.facing = facing;
+}
+
+function initLevel() {
+    state.holes = [];
+    state.grid = Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
+    state.trail = [];
+    state.isDrawing = false;
+    state.filledArea = 0;
+    for (let r = 0; r < ROWS; r++) { state.grid[r][0] = 1; state.grid[r][COLS - 1] = 1; }
+    for (let c = 0; c < COLS; c++) { state.grid[0][c] = 1; state.grid[ROWS - 1][c] = 1; }
+
+    state.spaceship = { x: GAME_X, y: GAME_Y, facing: 'right' };
+    updateUI();
+
+    const numHoles = state.level + 1;
+    for (let i = 0; i < numHoles; i++) {
+        state.holes.push(new BlackHole(GAME_X + GAME_W / 2, GAME_Y + GAME_H / 2, 12, 150 + state.level * 30));
+    }
+}
+
+function startLevel() {
+    initLevel();
+    state.isPlaying = true;
+    overlay.classList.add('hidden');
+    lastTime = null;
+    requestAnimationFrame(gameLoop);
+}
+
+function showOverlay(title, msg) {
+    state.isPlaying = false;
+    overlayTitle.textContent = title;
+    overlayMsg.textContent = msg;
+    overlay.classList.remove('hidden');
+}
+
+restartBtn.addEventListener('click', () => {
+    if (state.lives <= 0) {
+        state.level = 1;
+        state.score = 0;
+        state.lives = 3;
+    }
+    startLevel();
+});
+
+let lastTime = null;
+
+function updateUI() {
+    scoreEl.textContent = state.score;
+    livesEl.textContent = state.lives;
+    levelEl.textContent = state.level;
+    const perc = (state.filledArea / TOTAL_AREA * 100).toFixed(1);
+    filledEl.textContent = perc;
+}
+
+function update(dt) {
+    if (!state.isPlaying) return;
+    updateSpaceship(dt);
+    state.holes.forEach(b => b.update(dt));
+}
+
+function drawSpaceship(ctx) {
+    const { x, y, facing } = state.spaceship;
+    ctx.save();
+    // Center rocket on cell exactly
+    ctx.translate(x + CELL / 2, y + CELL / 2);
+
+    if (facing === 'down') ctx.rotate(Math.PI);
+    else if (facing === 'right') ctx.rotate(Math.PI / 2);
+    else if (facing === 'left') ctx.rotate(-Math.PI / 2);
+    else ctx.rotate(0); // up
+
+    ctx.font = '28px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('ðŸš€', 0, 0);
+
+    ctx.restore();
+}
+
+function drawGrid(ctx) {
+    ctx.fillStyle = 'rgba(10, 0, 30, 0.8)';
+    ctx.beginPath();
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (state.grid[r][c] === 1) {
+                ctx.rect(GAME_X + c * CELL, GAME_Y + r * CELL, CELL, CELL);
+            }
+        }
+    }
+    ctx.fill();
+
+    ctx.fillStyle = '#00ffff';
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    for (let pt of state.trail) {
+        ctx.rect(GAME_X + pt.c * CELL, GAME_Y + pt.r * CELL, CELL, CELL);
+    }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = '#0055ff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(GAME_X, GAME_Y, GAME_W, GAME_H);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, C_WIDTH, C_HEIGHT);
+    drawGrid(ctx);
+    state.holes.forEach(h => h.draw(ctx));
+    drawSpaceship(ctx);
+}
+
+function gameLoop(timestamp) {
+    if (!state.isPlaying) return;
+
+    if (!lastTime) lastTime = timestamp;
+    const dt = (timestamp - lastTime) / 1000;
+    lastTime = timestamp;
+
+    if (dt < 0.1) {
+        update(dt);
+        draw();
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+draw();
+showOverlay("Cosmos Partition", "Trap the black holes. Steer the rocket onto the canvas to draw a laser trail. Touch a wall to seal it.");
+restartBtn.textContent = "Ignition";
+
+</current_dom>

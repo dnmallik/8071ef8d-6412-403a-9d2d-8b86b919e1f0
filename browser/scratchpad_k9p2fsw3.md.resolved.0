@@ -1,0 +1,13 @@
+# Task: Test the Partition Game
+
+## Plan
+- [/] Open http://localhost:8092/
+- [ ] Click 'Ignition' to start.
+- [ ] Use arrow keys to move the spaceship pointer around the edge. Verify it moves.
+- [ ] Press SPACEBAR to shoot a laser across the canvas.
+- [ ] Move to a different edge and shoot another laser to trap an area.
+- [ ] Verify black holes are bouncing around and lasers trap them.
+- [ ] Assessment.
+
+## Observations
+- 

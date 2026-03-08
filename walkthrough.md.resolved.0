@@ -1,0 +1,18 @@
+# Cosmos Partition Game
+
+We successfully implemented a classic Jezzball/Qix style game with a space twist!
+
+## Features Implemented
+*   **Cosmos Theme**: The canvas represents deep space, with glowing purple Black Holes as obstacles.
+*   **Perimeter Spaceship**: You control a spaceship that moves exclusively along the outer edge of the canvas.
+*   **Controls**: 
+    *   **Arrow Keys**: Move the spaceship around the perimeter.
+    *   **Spacebar**: Shoot lasers inward to partition the space.
+*   **Game Loop**: Smooth `requestAnimationFrame` loop to handle black hole movement, laser drawing, and collision detection.
+*   **Area Calculation**: The game dynamically splits the canvas when a laser reaches the other side or another wall, finding which areas are empty and filling them to increase your score.
+
+## Gameplay Demonstration
+
+Here is a recording of the gameplay in action:
+
+![Gameplay Recording](/Users/mallik/.gemini/antigravity/brain/8071ef8d-6412-403a-9d2d-8b86b919e1f0/cosmos_gameplay_1772952343316.webp)
